@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hospital Portal - Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="bg-light">
+    <div class="container py-5">
+        <div class="card shadow">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h1>🏥 Hospital Portal Dashboard</h1>
+                <div class="text-end">
+                    <strong>{{ session.username }}</strong> ({{ session.role }})<br>
+                    <a href="{{ url_for('logout') }}" class="btn btn-outline-danger btn-sm">Logout</a>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Key Download Notification -->
+                {% if not keys_downloaded %}
+                <div class="alert alert-warning">
+                    <strong>Important:</strong> Please download your Public ID and Secret Key below. These are required for secure login and document signing.
+                </div>
+                {% endif %}
+                <!-- Document Upload -->
+                <div class="mb-4">
+                    <h2>📄 Upload Document</h2>
+                    <form id="uploadForm" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label for="file" class="form-label">Select File</label>
+                            <input type="file" class="form-control" id="file" name="file" required>
+                            <div class="progress mt-2" style="height: 5px;">
+                                <div id="uploadProgress" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="doc_type" class="form-label">Document Type</label>
+                            <select class="form-select" id="doc_type" name="doc_type">
+                                <option value="Medical Report">Medical Report</option>
+                                <option value="Prescription">Prescription</option>
+                                <option value="Lab Result">Lab Result</option>
+                                <option value="Patient Record">Patient Record</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Upload Document</button>
+                    </form>
+                </div>
+                <!-- Document Management -->
+                <div class="mb-4">
+                    <h2>📋 My Documents</h2>
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th scope="col">Filename</th>
+                                <th scope="col">Uploaded</th>
+                                <th scope="col">Hash</th>
+                                <th scope="col">Status</th>
+                                <th scope="col">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for doc in documents %}
+                            <tr>
+                                <td>{{ doc.original_filename }}</td>
+                                <td>{{ doc.created_at }}</td>
+                                <td>{{ doc.file_hash[:16] }}...</td>
+                                <td>
+                                    <span class="badge {% if doc.signature %}bg-success{% else %}bg-danger{% endif %}">
+                                        {% if doc.signature %}Signed{% else %}Unsigned{% endif %}
+                                    </span>
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('download_document', doc_id=doc.id) }}" class="btn btn-sm btn-outline-primary">Download</a>
+                                    {% if not doc.signature %}
+                                    <button class="btn btn-sm btn-outline-success sign-btn" data-doc-id="{{ doc.id }}">Sign</button>
+                                    {% endif %}
+                                    {% if doc.signature %}
+                                    <button class="btn btn-sm btn-outline-info verify-btn" data-doc-id="{{ doc.id }}">Verify</button>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <!-- Admin Panel -->
+                {% if session.role == 'Admin' %}
+                <div class="mb-4">
+                    <h2>🔧 Admin Panel</h2>
+                    <!-- User Management -->
+                    <h3>Users</h3>
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th scope="col">Username</th>
+                                <th scope="col">Email</th>
+                                <th scope="col">Role</th>
+                                <th scope="col">Created</th>
+                                <th scope="col">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in all_users %}
+                            <tr>
+                                <td>{{ user.username }}</td>
+                                <td>{{ user.email }}</td>
+                                <td>{{ user.role }}</td>
+                                <td>{{ user.created_at }}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-warning edit-user-btn" data-user-id="{{ user.id }}" data-username="{{ user.username }}" data-email="{{ user.email }}" data-role="{{ user.role }}">Edit</button>
+                                    <button class="btn btn-sm btn-outline-danger delete-user-btn" data-user-id="{{ user.id }}" data-username="{{ user.username }}">Delete</button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    <!-- Document Management -->
+                    <h3>All Documents</h3>
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th scope="col">Filename</th>
+                                <th scope="col">Uploader</th>
+                                <th scope="col">Uploaded</th>
+                                <th scope="col">Hash</th>
+                                <th scope="col">Status</th>
+                                <th scope="col">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for doc in all_documents %}
+                            <tr>
+                                <td>{{ doc.original_filename }}</td>
+                                <td>{{ doc.uploader }}</td>
+                                <td>{{ doc.created_at }}</td>
+                                <td>{{ doc.file_hash[:16] }}...</td>
+                                <td>
+                                    <span class="badge {% if doc.signature %}bg-success{% else %}bg-danger{% endif %}">
+                                        {% if doc.signature %}Signed{% else %}Unsigned{% endif %}
+                                    </span>
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('download_document', doc_id=doc.id) }}" class="btn btn-sm btn-outline-primary">Download</a>
+                                    <button class="btn btn-sm btn-outline-warning edit-doc-btn" data-doc-id="{{ doc.id }}" data-filename="{{ doc.original_filename }}">Edit</button>
+                                    <button class="btn btn-sm btn-outline-danger delete-doc-btn" data-doc-id="{{ doc.id }}" data-filename="{{ doc.original_filename }}">Delete</button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% endif %}
+                <!-- Public ID Information -->
+                <div>
+                    <h2>🔐 Public ID Information</h2>
+                    <p><strong>Status:</strong> <span class="badge {% if cert_status == 'Valid & Verified' %}bg-success{% else %}bg-danger{% endif %}">{{ cert_status }}</span></p>
+                    <p><strong>Issued By:</strong> Hospital Security CA</p>
+                    <p><strong>Valid Until:</strong> {{ cert_expiry or 'Unknown' }}</p>
+                    <a href="{{ url_for('download_certificate') }}" class="btn btn-outline-primary">Download Public ID</a>
+                    <button class="btn btn-outline-warning" data-bs-toggle="modal" data-bs-target="#secretKeyModal">Download Secret Key</button>
+                    <button class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#reissueCertModal">Reissue Certificate</button>
+                </div>
+            </div>
+        </div>
+        <!-- Secret Key Modal -->
+        <div class="modal fade" id="secretKeyModal" tabindex="-1" aria-labelledby="secretKeyModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="secretKeyModalLabel">Download Secret Key</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="text-warning">Warning: Secret keys should be kept secure. Only download if necessary.</p>
+                        <form id="privateKeyForm">
+                            <div class="mb-3">
+                                <label for="keyPassword" class="form-label">Password</label>
+                                <input type="password" class="form-control" id="keyPassword" name="password" required>
+                            </div>
+                            <div id="keyError" class="text-danger d-none"></div>
+                            <button type="submit" class="btn btn-primary">Download</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Reissue Certificate Modal -->
+        <div class="modal fade" id="reissueCertModal" tabindex="-1" aria-labelledby="reissueCertModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="reissueCertModalLabel">Reissue Certificate</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="text-warning">This will generate a new Public ID using your existing Secret Key. Download the new Public ID after reissuing.</p>
+                        <form id="reissueCertForm">
+                            <div class="mb-3">
+                                <label for="reissuePassword" class="form-label">Password</label>
+                                <input type="password" class="form-control" id="reissuePassword" name="password" required>
+                            </div>
+                            <div id="reissueError" class="text-danger d-none"></div>
+                            <button type="submit" class="btn btn-danger">Reissue Certificate</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Sign Document Modal -->
+        <div class="modal fade" id="signModal" tabindex="-1" aria-labelledby="signModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="signModalLabel">Sign Document</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="signForm">
+                            <input type="hidden" id="signDocId" name="doc_id">
+                            <div class="mb-3">
+                                <label for="signPassword" class="form-label">Password (to decrypt secret key)</label>
+                                <input type="password" class="form-control" id="signPassword" name="password" required>
+                            </div>
+                            <button type="submit" class="btn btn-success">Sign Document</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Edit User Modal -->
+        <div class="modal fade" id="editUserModal" tabindex="-1" aria-labelledby="editUserModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="editUserModalLabel">Edit User</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="editUserForm">
+                            <input type="hidden" id="editUserId" name="user_id">
+                            <div class="mb-3">
+                                <label for="editUsername" class="form-label">Username</label>
+                                <input type="text" class="form-control" id="editUsername" name="username" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="editEmail" class="form-label">Email</label>
+                                <input type="email" class="form-control" id="editEmail" name="email" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="editRole" class="form-label">Role</label>
+                                <select class="form-select" id="editRole" name="role" required>
+                                    <option value="Admin">Admin</option>
+                                    <option value="Doctor">Doctor</option>
+                                    <option value="Patient">Patient</option>
+                                    <option value="Nurse">Nurse</option>
+                                </select>
+                            </div>
+                            <div id="editUserError" class="text-danger d-none"></div>
+                            <button type="submit" class="btn btn-warning">Update User</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Edit Document Modal -->
+        <div class="modal fade" id="editDocModal" tabindex="-1" aria-labelledby="editDocModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="editDocModalLabel">Edit Document</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="editDocForm">
+                            <input type="hidden" id="editDocId" name="doc_id">
+                            <div class="mb-3">
+                                <label for="editFilename" class="form-label">Filename</label>
+                                <input type="text" class="form-control" id="editFilename" name="original_filename" required>
+                            </div>
+                            <div id="editDocError" class="text-danger d-none"></div>
+                            <button type="submit" class="btn btn-warning">Update Document</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Toast Container -->
+        <div class="toast-container position-fixed bottom-0 end-0 p-3">
+            <div id="toast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="toast-header">
+                    <strong class="me-auto">Notification</strong>
+                    <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+                <div class="toast-body"></div>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

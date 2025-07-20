@@ -1,0 +1,57 @@
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - Secure Hospital Portal</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h2>Register</h2>
+        <form id="registerForm" method="POST" action="/register" enctype="multipart/form-data">
+            <div class="form-group">
+                <label for="username">Username:</label>
+                <input type="text" id="username" name="username" required>
+            </div>
+            <div class="form-group">
+                <label for="email">Email:</label>
+                <input type="email" id="email" name="email" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            <div class="form-group">
+                <label for="role">Role:</label>
+                <select name="role" required>
+                    <option value="Doctor">Doctor</option>
+                    <option value="User">User</option>
+                    <option value="Patient">Patient</option>
+                    <option value="Nurse">Nurse</option>
+                </select>
+            </div>
+            <button type="submit">Register</button>
+        </form>
+        <p>Already have an account? <a href="{{ url_for('index') }}">Login</a></p>
+        <div id="message"></div>
+    </div>
+    <script>
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const response = await fetch('/register', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+            const messageDiv = document.getElementById('message');
+            messageDiv.innerHTML = data.message;
+            messageDiv.style.color = data.success ? 'green' : 'red';
+            if (data.success && data.redirect) {
+                window.location.href = data.redirect;
+            }
+        });
+    </script>
+</body>
+</html> 
