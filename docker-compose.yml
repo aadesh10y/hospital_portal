@@ -1,0 +1,32 @@
+services:
+  hospital-portal:
+    build: .
+    container_name: hospital_portal_app
+    ports:
+      - "8888:5000"  # Changed host port from 5000/5050 to 8888
+    volumes:
+      - .:/app
+      - ./certificates:/app/certificates
+      - ./database:/app/database
+    restart: always
+    environment:
+      - FLASK_ENV=development
+    depends_on:
+      - db
+
+  db:
+    image: mysql:8.0
+    container_name: hospital_db
+    restart: always
+    environment:
+      MYSQL_DATABASE: hospital_db
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_USER: hospitaluser
+      MYSQL_PASSWORD: hospitalpass
+    ports:
+      - "3307:3306"  # Changed from 3306 to avoid MySQL port conflict
+    volumes:
+      - db_data:/var/lib/mysql
+
+volumes:
+  db_data:
